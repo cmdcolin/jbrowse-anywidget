@@ -352,45 +352,41 @@ def make_assembly(
     aliases: list[str] | None = None,
     refname_aliases_uri: str | None = None,
 ) -> JsonDict:
-    """Build an assembly config dict for an (optionally bgzipped) indexed FASTA.
+    """Build an assembly config dict for an indexed FASTA, bgzipped FASTA, or `.2bit`.
 
     A convenience over writing the assembly JSON by hand; the return value is a
-    plain dict you can edit or pass as `assembly=`. `refname_aliases_uri` points
-    at a tab-separated aliases file (as UCSC publishes) so a track whose
-    reference names differ from the FASTA — e.g. a BAM using `chr1` against a
-    `1`-named reference — still lines up.
+    plain dict you can edit or pass as `assembly=`. In the common case it is the
+    flat shorthand `{"name": ..., "uri": ...}`: JBrowse itself picks the concrete
+    adapter type (`IndexedFastaAdapter`/`BgzipFastaAdapter`/`TwoBitAdapter`) from
+    the extension, derives the `.fai`/`.gzi` siblings, and fills in the
+    `ReferenceSequenceTrack`, so no adapter-type table lives here. Pass
+    `fai_uri`/`gzi_uri` to override a non-sibling index — that widens `sequence`
+    to its adapter form, the only shape with a slot for the override.
+    `refname_aliases_uri` points at a tab-separated aliases file (as UCSC
+    publishes) so a track whose reference names differ from the sequence — e.g. a
+    BAM using `chr1` against a `1`-named reference — still lines up.
     """
-    bgzipped = fasta_uri.endswith(".gz")
-    adapter_type = "BgzipFastaAdapter" if bgzipped else "IndexedFastaAdapter"
+    assembly: JsonDict = {"name": name, "aliases": aliases if aliases else []}
     if fai_uri or gzi_uri:
-        # a custom index location needs the longhand slots; the `uri` shorthand
-        # would derive (and override) faiLocation/gziLocation from the fasta uri
-        adapter = {
-            "type": adapter_type,
-            "fastaLocation": {"uri": fasta_uri},
-            "faiLocation": {"uri": fai_uri if fai_uri else fasta_uri + ".fai"},
-        }
-        if bgzipped:
-            adapter["gziLocation"] = {"uri": gzi_uri if gzi_uri else fasta_uri + ".gzi"}
-    else:
-        # JBrowse derives the .fai (and .gzi) sibling from `uri`
-        adapter = {"type": adapter_type, "uri": fasta_uri}
-    assembly = {
-        "name": name,
-        "aliases": aliases if aliases else [],
-        "sequence": {
+        # a non-sibling index has no home in the flat shorthand, so fall back to
+        # the sequence.adapter form; the bare `uri` there still infers the type
+        adapter: JsonDict = {"uri": fasta_uri}
+        if fai_uri:
+            adapter["faiLocation"] = {"uri": fai_uri}
+        if gzi_uri:
+            adapter["gziLocation"] = {"uri": gzi_uri}
+        assembly["sequence"] = {
             "type": "ReferenceSequenceTrack",
             "trackId": f"{name}-ReferenceSequenceTrack",
             "adapter": adapter,
-        },
-    }
-    if refname_aliases_uri:
-        assembly["refNameAliases"] = {
-            "adapter": {
-                "type": "RefNameAliasAdapter",
-                "uri": refname_aliases_uri,
-            }
         }
+    else:
+        # flat shorthand: core expands { name, uri } into the full sequence track
+        assembly["uri"] = fasta_uri
+    if refname_aliases_uri:
+        # same bare `{ uri }` shorthand: the alias file is always a
+        # RefNameAliasAdapter, so its type and the adapter nesting are boilerplate
+        assembly["refNameAliases"] = {"uri": refname_aliases_uri}
     return assembly
 
 
@@ -539,7 +535,10 @@ def fetch_hub(hub: str) -> JsonDict:
 
 def _stamp_base_uri(node: Any, base: str) -> None:
     if isinstance(node, dict):
-        if "uri" in node and "baseUri" not in node:
+        # fill baseUri when absent — mirror jbrowse-web's `baseUri ?? base` (and
+        # stampBaseUri.ts) so a node carrying an explicit null baseUri still
+        # resolves; a bare `in` check would wrongly treat that as already-stamped
+        if "uri" in node and node.get("baseUri") is None:
             node["baseUri"] = base
         for value in node.values():
             _stamp_base_uri(value, base)
