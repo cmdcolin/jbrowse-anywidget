@@ -17,10 +17,14 @@ function hasSession(model) {
 // incrementally by syncTracks so adding a track doesn't remount the view.
 function buildViewState(model) {
   const assembly = model.get('assembly')
+  const searchAdapters = model.get('aggregate_text_search_adapters')
   const state = createViewState({
     assembly,
     tracks: model.get('tracks'),
     defaultSession: hasSession(model) ? model.get('default_session') : undefined,
+    aggregateTextSearchAdapters: searchAdapters.length
+      ? searchAdapters
+      : undefined,
   })
   // Route navigation through setInit (same path as the managed component) so
   // the view shows a spinner while the assembly loads rather than the import

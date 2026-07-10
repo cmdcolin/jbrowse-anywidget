@@ -10,6 +10,9 @@ turning an in-memory DataFrame into a track (`add_features`) and a little
 assembly boilerplate (`make_assembly`).
 """
 
+import json
+import re
+import urllib.request
 from pathlib import Path
 
 import anywidget
@@ -17,7 +20,7 @@ import traitlets
 
 _STATIC = Path(__file__).parent / "static"
 
-__all__ = ["LinearGenomeView", "make_assembly"]
+__all__ = ["LinearGenomeView", "make_assembly", "fetch_hub"]
 
 
 class LinearGenomeView(anywidget.AnyWidget):
@@ -29,6 +32,7 @@ class LinearGenomeView(anywidget.AnyWidget):
     assembly = traitlets.Dict().tag(sync=True)
     tracks = traitlets.List().tag(sync=True)
     default_session = traitlets.Dict().tag(sync=True)
+    aggregate_text_search_adapters = traitlets.List().tag(sync=True)
 
     # The visible region, synced both ways. Reading it after the user has panned
     # gives back their current location.
@@ -56,13 +60,11 @@ class LinearGenomeView(anywidget.AnyWidget):
         """Add a JBrowse track config dict; it opens in the view.
 
         `track` is any JBrowse track config — the same JSON you'd put in a
-        JBrowse config file — so every track type and adapter is available with
-        no Python wrapper, e.g.::
+        config file — so every track type and adapter works with no Python
+        wrapper. Pick one out of a `fetch_hub(...)` catalog, or write your own::
 
             view.add_track({
-                "type": "AlignmentsTrack",
-                "trackId": "reads",
-                "name": "reads",
+                "type": "AlignmentsTrack", "trackId": "reads", "name": "reads",
                 "assemblyNames": ["hg38"],
                 "adapter": {"type": "CramAdapter", "uri": ".../reads.cram"},
             })
@@ -185,3 +187,48 @@ def _rows(features):
 
 def _slug(text):
     return "".join(c if c.isalnum() else "-" for c in str(text).lower()).strip("-")
+
+
+_GENOMES = "https://jbrowse.org"
+
+
+def fetch_hub(hub):
+    """Fetch a hosted assembly config from genomes.jbrowse.org.
+
+    `hub` is a UCSC database name (``hg38``, ``hg19``, ``mm10``, …) or a GenArk
+    accession (``GCA_...``/``GCF_...``). Returns the full config dict — a
+    self-contained assembly (remote sequence, refName aliases, cytobands) plus a
+    catalog of hosted tracks, all CORS-enabled — which is the easy way to get
+    human/model-organism data without hunting for files. Usually you don't call
+    this directly; pass ``hub=`` to ``LinearGenomeView`` instead.
+    """
+    match = re.match(r"^(GC[AF])_(\d{3})(\d{3})(\d{3})", hub)
+    if match:
+        a, b, c, d = match.groups()
+        url = f"{_GENOMES}/hubs/genark/{a}/{b}/{c}/{d}/{hub}/config.json"
+    else:
+        url = f"{_GENOMES}/ucsc/{hub}/config.json"
+    try:
+        with urllib.request.urlopen(url) as response:
+            config = json.load(response)
+    except urllib.error.HTTPError as e:
+        raise ValueError(
+            f'hub "{hub}" not found ({e.code} from {url}). '
+            "See https://genomes.jbrowse.org for available assemblies."
+        ) from e
+    # Hosted configs reference data with URIs relative to the config's own
+    # location; stamp each with baseUri so they resolve (the same pass
+    # jbrowse-web runs when it loads a config from a URL).
+    _stamp_base_uri(config, url)
+    return config
+
+
+def _stamp_base_uri(node, base):
+    if isinstance(node, dict):
+        if "uri" in node and "baseUri" not in node:
+            node["baseUri"] = base
+        for value in node.values():
+            _stamp_base_uri(value, base)
+    elif isinstance(node, list):
+        for value in node:
+            _stamp_base_uri(value, base)

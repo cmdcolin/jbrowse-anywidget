@@ -515,4 +515,150 @@ save(
     ],
 )
 
+# --- 07 differential expression ---------------------------------------------
+save(
+    "07_differential_expression.ipynb",
+    [
+        new_markdown_cell(
+            "# Differential expression → view\n\n"
+            + badge("07_differential_expression.ipynb")
+            + "\n\nAnother analysis→genome loop: run a small DE analysis over "
+            "gene counts, then load each gene colored by its result — "
+            "up-regulated red, down-regulated blue. All computed in the "
+            "notebook (numpy only)."
+        ),
+        new_code_cell(INSTALL),
+        new_markdown_cell(
+            "## Counts → log2 fold-change and a t-test\n\n"
+            "Simulate control vs treatment counts for a panel of genes (a few "
+            "truly differential), then compute per-gene log2FC and a Welch "
+            "t-test — a normal approximation gives the p-value, no scipy needed. "
+            "Swap in your own DESeq2/edgeR table joined to gene coordinates."
+        ),
+        new_code_cell(
+            'import math\n'
+            'import numpy as np\n'
+            'import pandas as pd\n\n'
+            'rng = np.random.default_rng(7)\n'
+            'n_genes, n_rep = 80, 4\n'
+            'chrom, gene_len, gap = "7", 6_000, 40_000\n'
+            'starts = 1_000_000 + np.arange(n_genes) * gap\n\n'
+            'base = rng.uniform(20, 400, n_genes)  # baseline expression per gene\n'
+            'true_lfc = np.zeros(n_genes)\n'
+            'up = rng.choice(n_genes, 6, replace=False)\n'
+            'down = rng.choice(np.setdiff1d(np.arange(n_genes), up), 6, replace=False)\n'
+            'true_lfc[up] = rng.uniform(1.5, 3.0, up.size)\n'
+            'true_lfc[down] = -rng.uniform(1.5, 3.0, down.size)\n\n'
+            'ctrl = rng.poisson(base[:, None], size=(n_genes, n_rep))\n'
+            'treat = rng.poisson((base * 2.0**true_lfc)[:, None], size=(n_genes, n_rep))\n\n'
+            'lc, lt = np.log2(ctrl + 1), np.log2(treat + 1)\n'
+            'lfc = lt.mean(1) - lc.mean(1)\n'
+            'se = np.sqrt(lc.var(1, ddof=1) / n_rep + lt.var(1, ddof=1) / n_rep)\n'
+            't = np.divide(lfc, se, out=np.zeros_like(lfc), where=se > 0)\n'
+            'pval = np.array([math.erfc(abs(v) / math.sqrt(2)) for v in t])\n\n'
+            'de = pd.DataFrame(\n'
+            '    {\n'
+            '        "chrom": chrom,\n'
+            '        "start": starts,\n'
+            '        "end": starts + gene_len,\n'
+            '        "name": [f"GENE{i:04d}" for i in range(n_genes)],\n'
+            '        "log2fc": lfc.round(2),\n'
+            '        "pvalue": pval,\n'
+            '    }\n'
+            ')\n'
+            'de["sig"] = np.where(\n'
+            '    (de.pvalue < 0.01) & (de.log2fc.abs() > 1),\n'
+            '    np.where(de.log2fc > 0, "up", "down"),\n'
+            '    "ns",\n'
+            ')\n'
+            'de.sort_values("pvalue").head()'
+        ),
+        new_markdown_cell(
+            "## Load the DE table onto the genome\n\n"
+            "Each gene is colored by call; `log2fc`/`pvalue` ride along and show "
+            "in the feature details."
+        ),
+        new_code_cell(
+            'from jbrowse_anywidget import LinearGenomeView, make_assembly\n\n'
+            'grch38 = make_assembly(\n'
+            '    "GRCh38",\n'
+            '    "https://s3.amazonaws.com/jbrowse.org/genomes/GRCh38/fasta/GRCh38.fa.gz",\n'
+            '    aliases=["hg38"],\n'
+            ')\n'
+            'view = LinearGenomeView(assembly=grch38, location="7:1,000,000..4,300,000")\n'
+            'view.add_features(\n'
+            '    de,\n'
+            '    name="differential expression",\n'
+            '    color="jexl:get(feature,\'sig\') == \'up\' ? \'#c62828\' : get(feature,\'sig\') == \'down\' ? \'#1565c0\' : \'#cfcfcf\'",\n'
+            ')\n'
+            'view'
+        ),
+    ],
+)
+
+# --- 08 hosted assembly hub -------------------------------------------------
+save(
+    "08_hosted_assembly_hub.ipynb",
+    [
+        new_markdown_cell(
+            "# Easy human data: a hosted assembly hub\n\n"
+            + badge("08_hosted_assembly_hub.ipynb")
+            + "\n\nWiring up a human genome by hand — sequence, refName aliases, "
+            "cytobands, a gene-name search index — is the fiddly part. "
+            "`fetch_hub` pulls all of it, already configured and CORS-enabled, "
+            "from [genomes.jbrowse.org](https://genomes.jbrowse.org): pass a "
+            "UCSC name (`hg38`, `hg19`, `mm10`) or a GenArk accession "
+            "(`GCA_...`). It returns plain JSON you hand to the view."
+        ),
+        new_code_cell(INSTALL),
+        new_markdown_cell(
+            "## Pull hg38 and open it at a gene\n\n"
+            "The hub config carries a gene-name search index, so `location` "
+            "accepts a symbol like `BRCA1`, not just a locstring."
+        ),
+        new_code_cell(
+            'from jbrowse_anywidget import LinearGenomeView, fetch_hub\n\n'
+            'hg38 = fetch_hub("hg38")  # sequence + refName aliases + cytobands + search\n\n'
+            'view = LinearGenomeView(\n'
+            '    assembly=hg38["assemblies"][0],\n'
+            '    aggregate_text_search_adapters=hg38["aggregateTextSearchAdapters"],\n'
+            '    location="BRCA1",\n'
+            ')\n'
+            'view'
+        ),
+        new_markdown_cell(
+            "## Add a hosted track\n\n"
+            "`hg38[\"tracks\"]` is a catalog of ready-to-use hosted tracks. Pick "
+            "one by id and hand it to `add_track` — it's just JSON, no special "
+            "API."
+        ),
+        new_code_cell(
+            'catalog = {t["trackId"]: t for t in hg38["tracks"]}\n'
+            'print(len(catalog), "hosted tracks, e.g.:", list(catalog)[:4])\n\n'
+            'view.add_track(catalog["hg38-ncbiRefSeqCurated"])'
+        ),
+        new_markdown_cell(
+            "## Mix in your own data\n\n"
+            "Your own tracks drop in next to hosted ones. Because the hub "
+            "assembly carries refName aliases, a file that names chromosomes "
+            "`chr17` lines up with the reference automatically — no manual "
+            "aliasing."
+        ),
+        new_code_cell(
+            'view.add_track(\n'
+            '    {\n'
+            '        "type": "QuantitativeTrack",\n'
+            '        "trackId": "phyloP100way",\n'
+            '        "name": "phyloP100way",\n'
+            '        "assemblyNames": ["hg38"],\n'
+            '        "adapter": {\n'
+            '            "type": "BigWigAdapter",\n'
+            '            "uri": "https://hgdownload.cse.ucsc.edu/goldenpath/hg38/phyloP100way/hg38.phyloP100way.bw",\n'
+            '        },\n'
+            '    }\n'
+            ')'
+        ),
+    ],
+)
+
 print("done")

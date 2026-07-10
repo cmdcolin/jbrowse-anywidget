@@ -17,9 +17,11 @@ just a Vite-bundled ESM file loaded by anywidget.
 - Multi-sample variants — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cmdcolin/jbrowse-anywidget/blob/main/examples/04_multisample_variants.ipynb)
 - Call CNVs → view them (ERBB2 amplification) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cmdcolin/jbrowse-anywidget/blob/main/examples/05_cnv_calling.ipynb)
 - Selection scan (Fst) → view the sweep (LCT) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cmdcolin/jbrowse-anywidget/blob/main/examples/06_popgen_selection.ipynb)
+- Differential expression → view — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cmdcolin/jbrowse-anywidget/blob/main/examples/07_differential_expression.ipynb)
+- Easy human data (hosted assembly hub) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cmdcolin/jbrowse-anywidget/blob/main/examples/08_hosted_assembly_hub.ipynb)
 
-The last two are the core loop — **run an analysis in Python, load the result
-onto the genome** — with everything computed in the notebook (no downloads).
+05–07 are the core loop — **run an analysis in Python, load the result onto the
+genome** — with everything computed in the notebook (no downloads).
 
 ## Develop
 
@@ -75,6 +77,13 @@ boilerplate). Everything else is `add_track(<config dict>)` — or pass whole
 `tracks=[...]` / `default_session={...}` configs to the constructor. Tracks are
 opened in the view automatically; removing one from `view.tracks` closes it.
 
+For human/model-organism data, `fetch_hub("hg38")` (also `hg19`, `mm10`, a
+GenArk `GCA_...`) returns a ready, CORS-enabled assembly config from
+genomes.jbrowse.org — sequence, refName aliases, cytobands, a gene-name search
+index, and a catalog of hosted tracks — as plain JSON you pass in. Because the
+assembly carries refName aliases, your own tracks line up even when they name
+chromosomes differently (`chr17` vs `17`). See `examples/08_hosted_assembly_hub.ipynb`.
+
 ## Publishing (to make the Colab links live)
 
 The built JS bundle in `jbrowse_anywidget/static/` is committed, so the package
@@ -94,9 +103,10 @@ manager (`output.enable_custom_widget_manager()`).
 
 Prototype consolidating two earlier experiments
 (`experiments/jbrowse_lgv_widget`, `dont_care/jb2anywidget`), now bundling the
-GPU-rendered v4 view. All six notebooks in `examples/` are verified to execute
+GPU-rendered v4 view. All eight notebooks in `examples/` are verified to execute
 headless, and their track configs (bigwig, DataFrame, alignments, variants, CNV
-segments, Fst windows) are verified to render in a headless browser.
+segments, Fst windows, differential expression, hosted hub tracks) are verified
+to render in a headless browser.
 
 Next: a matching synteny/dotplot widget (a different view type, so a separate
 component), a binary fast-path for large feature sets, and an R wrapper over the
