@@ -5,9 +5,10 @@ and supports two-way sync of the visible region between Python and the view.
 
 The interface is JBrowse's own config: assemblies, tracks, and sessions are the
 same JSON-like dicts documented at https://jbrowse.org/jb2/docs/config_guide/,
-handed straight to the view. Python adds only what JSON can't express itself —
-turning an in-memory DataFrame into a track (`add_features`) and a little
-assembly boilerplate (`make_assembly`).
+handed straight to the view. `assembly=` also accepts a hub name (``"hg38"``,
+``"GCF_..."``) that the view fetches and resolves. Python adds only what JSON
+can't express itself — turning an in-memory DataFrame into a track
+(`add_features`) and a little assembly boilerplate (`make_assembly`).
 """
 
 import json
@@ -27,9 +28,12 @@ class LinearGenomeView(anywidget.AnyWidget):
     _esm = _STATIC / "index.js"
     _css = _STATIC / "jbrowse-anywidget.css"
 
-    # Config, pushed Python -> JS. assembly/tracks/default_session are JBrowse
-    # config dicts; a change to them updates the view.
-    assembly = traitlets.Dict().tag(sync=True)
+    # Config, pushed Python -> JS. tracks/default_session are JBrowse config
+    # dicts; a change to them updates the view. assembly is either a config dict
+    # or a hub name ("hg38", "GCF_..."), which the JS side fetches and resolves.
+    assembly = traitlets.Union(
+        [traitlets.Unicode(), traitlets.Dict()], default_value={}
+    ).tag(sync=True)
     tracks = traitlets.List().tag(sync=True)
     default_session = traitlets.Dict().tag(sync=True)
     aggregate_text_search_adapters = traitlets.List().tag(sync=True)
@@ -37,6 +41,13 @@ class LinearGenomeView(anywidget.AnyWidget):
     # The visible region, synced both ways. Reading it after the user has panned
     # gives back their current location.
     location = traitlets.Unicode("").tag(sync=True)
+
+    # Read-back only (JS -> Python): the most recently clicked feature, as a
+    # plain dict. `None` until the user selects one. Observe it to react to
+    # clicks, e.g. `view.observe(handler, "selected_feature")`.
+    selected_feature = traitlets.Dict(default_value=None, allow_none=True).tag(
+        sync=True
+    )
 
     def __init__(
         self,
@@ -113,6 +124,9 @@ class LinearGenomeView(anywidget.AnyWidget):
     def _assembly_name(self, assembly_name):
         if assembly_name:
             return assembly_name
+        # a hub-name string ("hg38") is both the input and the resolved name
+        if isinstance(self.assembly, str):
+            return self.assembly
         name = self.assembly.get("name")
         if not name:
             raise ValueError("no assembly set; pass assembly_name=")
@@ -193,14 +207,20 @@ _GENOMES = "https://jbrowse.org"
 
 
 def fetch_hub(hub):
-    """Fetch a hosted assembly config from genomes.jbrowse.org.
+    """Fetch a hosted assembly config from jbrowse.org.
 
     `hub` is a UCSC database name (``hg38``, ``hg19``, ``mm10``, …) or a GenArk
     accession (``GCA_...``/``GCF_...``). Returns the full config dict — a
     self-contained assembly (remote sequence, refName aliases, cytobands) plus a
     catalog of hosted tracks, all CORS-enabled — which is the easy way to get
-    human/model-organism data without hunting for files. Usually you don't call
-    this directly; pass ``hub=`` to ``LinearGenomeView`` instead.
+    human/model-organism data without hunting for files. Pull the single
+    assembly out of it for ``LinearGenomeView(assembly=...)``::
+
+        hub = fetch_hub("hg38")
+        view = LinearGenomeView(
+            assembly=hub["assemblies"][0],
+            aggregate_text_search_adapters=hub["aggregateTextSearchAdapters"],
+        )
     """
     match = re.match(r"^(GC[AF])_(\d{3})(\d{3})(\d{3})", hub)
     if match:
