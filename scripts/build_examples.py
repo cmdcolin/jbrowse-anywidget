@@ -873,4 +873,69 @@ save(
     ],
 )
 
+# --- 11 comparative synteny (E. coli all-vs-all) ----------------------------
+save(
+    "11_synteny_ecoli.ipynb",
+    [
+        new_markdown_cell(
+            "# Compare genomes: four E. coli strains in a linear synteny view\n\n"
+            + badge("11_synteny_ecoli.ipynb")
+            + "\n\n`JBrowseApp` drives the full app, so a `views=[...]` list can "
+            "hold a `LinearSyntenyView` — several genomes stacked, the blocks "
+            "each pair shares drawn between the rows. Here are four *E. coli* "
+            "strains (K12, Sakai, CFT073, NCTC86) tied together by one "
+            "all-vs-all minimap2 alignment, the same data as the "
+            "[all-vs-all synteny tutorial](https://jbrowse.org/jb2/docs/tutorials/allvsall_synteny/). "
+            "Everything below is hosted, so this cell runs as-is."
+        ),
+        new_code_cell(INSTALL),
+        new_markdown_cell(
+            "## Stack the four strains, one all-vs-all track between them\n\n"
+            "Each genome is a `make_assembly` from its hosted FASTA. The single "
+            "`AllVsAllPAFAdapter` track serves every pair from one PAF, so the "
+            "three bands between the four rows are all the same trackId "
+            "(`tracks=[[\"ecoli_ava\"]] * 3`, one entry per adjacent pair). "
+            "`drawCurves=False` draws straight ribbons; `minAlignmentLength` "
+            "hides short noisy blocks."
+        ),
+        new_code_cell(
+            "from jbrowse_anywidget import JBrowseApp, make_assembly, synteny_view\n\n"
+            'BASE = "https://jbrowse.org/demos/ecoli_pangenome"\n'
+            'STRAINS = ["K12", "Sakai", "CFT073", "NCTC86"]\n\n'
+            "assemblies = [make_assembly(s, f\"{BASE}/{s}.fa.gz\") for s in STRAINS]\n\n"
+            "ecoli_ava = {\n"
+            '    "type": "SyntenyTrack",\n'
+            '    "trackId": "ecoli_ava",\n'
+            '    "name": "E. coli all-vs-all (minimap2 PAF)",\n'
+            '    "assemblyNames": STRAINS,\n'
+            '    "adapter": {\n'
+            '        "type": "AllVsAllPAFAdapter",\n'
+            '        "assemblyNames": STRAINS,\n'
+            '        "pafLocation": {"uri": f"{BASE}/all_vs_all.paf.gz"},\n'
+            "    },\n"
+            "}\n\n"
+            "JBrowseApp(\n"
+            "    assemblies=assemblies,\n"
+            "    tracks=[ecoli_ava],\n"
+            "    views=[\n"
+            "        synteny_view(\n"
+            "            STRAINS,\n"
+            '            tracks=[["ecoli_ava"]] * 3,  # one band per adjacent pair\n'
+            "            drawCurves=False,\n"
+            "            minAlignmentLength=10000,\n"
+            "        )\n"
+            "    ],\n"
+            ")"
+        ),
+        new_markdown_cell(
+            "The same PAF also opens as a **dotplot** — swap `synteny_view` for "
+            "`dotplot_view([\"K12\", \"Sakai\"], tracks=[\"ecoli_ava\"])` to see "
+            "any one pair whole-genome. To build the PAF from your own genomes "
+            "(`minimap2 -c -x asm20 --eqx`) and load per-strain gene tracks "
+            "alongside, follow the "
+            "[tutorial](https://jbrowse.org/jb2/docs/tutorials/allvsall_synteny/)."
+        ),
+    ],
+)
+
 print("done")

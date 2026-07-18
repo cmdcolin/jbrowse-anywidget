@@ -21,6 +21,7 @@ just a Vite-bundled ESM file loaded by anywidget.
 - Easy human data (hosted assembly hub) — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GMOD/jbrowse-anywidget/blob/main/examples/08_hosted_assembly_hub.ipynb)
 - Interactive controls — a slider that re-runs the analysis — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GMOD/jbrowse-anywidget/blob/main/examples/09_interactive_controls.ipynb)
 - Region-reactive — recompute only what's on screen as you pan — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GMOD/jbrowse-anywidget/blob/main/examples/10_region_reactive.ipynb)
+- Compare genomes — four E. coli strains in a linear synteny view — [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GMOD/jbrowse-anywidget/blob/main/examples/11_synteny_ecoli.ipynb)
 
 05–07 are the core loop — **run an analysis in Python, load the result onto the
 genome** — with everything computed in the notebook (no downloads). 09–10 close
