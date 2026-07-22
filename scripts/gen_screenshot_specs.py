@@ -37,6 +37,11 @@ HG19 = {
         "uri": "https://jbrowse.org/genomes/hg19/hg19_aliases.txt"
     },
 }
+REFSEQ_GFF = (
+    "https://jbrowse.org/genomes/GRCh38/ncbi_refseq/"
+    "GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.sorted.gff.gz"
+)
+
 VOLVOX = {"name": "volvox", "uri": "https://jbrowse.org/genomes/volvox/volvox.fa.gz"}
 
 VOLVOX_DATA = (
@@ -60,10 +65,12 @@ def lgv_spec(view, caption):
     }
 
 
-def app_spec(app, caption):
+def app_spec(app, caption, headed=False):
     return {
         "bundle": "app.js",
         "caption": caption,
+        # molstar's 3D canvas needs a real GPU, so this one renders in a window
+        "headed": headed,
         "traits": {
             "assemblies": app.assemblies,
             "tracks": app.tracks,

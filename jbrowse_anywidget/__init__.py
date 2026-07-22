@@ -59,7 +59,6 @@ __all__ = [
     "linear_view",
     "synteny_view",
     "dotplot_view",
-    "protein_view",
     "synteny_track",
     "make_assembly",
     "fetch_hub",
@@ -234,7 +233,14 @@ class JBrowseApp(anywidget.AnyWidget):
 
     `plugins=[...]` loads JBrowse plugins at runtime (see `plugin`), which is
     how view types that don't ship in the bundle — a 3D protein structure, an
-    MSA — become available to `views`.
+    MSA — become available to `views`. Open those with the generic `view`, whose
+    init fields are the plugin's own::
+
+        JBrowseApp(
+            assemblies=[hg38],
+            plugins=["Protein3d"],
+            views=[view("ProteinView", url=".../AF-P04637-F1-model_v6.cif")],
+        )
     """
 
     _esm = _STATIC / "app.js"
@@ -318,14 +324,17 @@ def plugin(spec: str | JsonDict) -> JsonDict:
 def view(type: str, **init: Any) -> JsonDict:
     """Describe any view for `JBrowseApp(views=[...])`.
 
-    The general form behind `linear_view`, `synteny_view`, `dotplot_view`, and
-    `protein_view`: builds the `{"type", "init"}` dict any view type
-    understands, where `init` is the declarative [session-spec
+    The general form behind `linear_view`, `synteny_view`, and `dotplot_view`:
+    builds the `{"type", "init"}` dict any view type understands, where `init`
+    is the declarative [session-spec
     init](https://jbrowse.org/jb2/docs/urlparams/#session-spec) for that type,
-    with `None` values dropped. Use it for view types those helpers don't cover
-    — a plugin's circular view, say::
+    with `None` values dropped.
+
+    This is also how a plugin's view type is opened — its init fields are the
+    plugin's own, so there is no Python wrapper to fall out of step with them::
 
         view("CircularView", assembly="hg19", tracks=["pairs"])
+        view("ProteinView", url=".../AF-P04637-F1-model_v6.cif", height=600)
     """
     return {"type": type, "init": _drop_none(init)}
 
@@ -378,54 +387,6 @@ def dotplot_view(
 ) -> JsonDict:
     """Describe a `DotplotView` comparing two assemblies via a synteny track."""
     return view("DotplotView", views=_panels(assemblies), tracks=tracks, **init)
-
-
-def protein_view(
-    uniprot_id: str | None = None,
-    transcript_id: str | None = None,
-    url: str | None = None,
-    connected_view: JsonDict | None = None,
-    **init: Any,
-) -> JsonDict:
-    """Describe a 3D protein-structure view (needs the `Protein3d` plugin).
-
-    `uniprot_id` + `transcript_id` is the short form: the plugin derives the
-    AlphaFold structure, finds that transcript in the connected view's tracks,
-    and translates its CDS to align genome positions onto residues. Pass
-    `connected_view` (a `linear_view`-shaped dict of `assembly`/`loc`/`tracks`)
-    and the protein view creates that genome view itself and links the two, so
-    hovering a variant lights up the matching residue::
-
-        JBrowseApp(
-            assemblies=[hub["assemblies"][0]],
-            tracks=hub["tracks"],
-            plugins=["Protein3d"],
-            views=[
-                protein_view(
-                    uniprot_id="P04637",
-                    transcript_id="NM_000546.6",
-                    connected_view={
-                        "assembly": "hg38",
-                        "loc": "chr17:7,668,421-7,687,550",
-                        "tracks": ["hg38-ncbiRefSeq", "clinvar_ncbi_hg38"],
-                    },
-                )
-            ],
-        )
-
-    `url` opens a structure file directly (any PDB/mmCIF), with no genome
-    connection unless you also supply the `feature` and
-    `userProvidedTranscriptSequence` the mapping needs. Extra keyword args ride
-    onto the view's init blob (`height`, `showControls`, `showHighlight`, ...).
-    """
-    return view(
-        "ProteinView",
-        uniprotId=uniprot_id,
-        transcriptId=transcript_id,
-        url=url,
-        connectedView=connected_view,
-        **init,
-    )
 
 
 def synteny_track(

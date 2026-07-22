@@ -83,16 +83,32 @@ await new Promise(r => server.listen(0, r))
 const port = server.address().port
 
 await mkdir(join(REPO, 'images'), { recursive: true })
-const browser = await puppeteer.launch({
-  headless: true,
-  args: [
-    '--no-sandbox',
-    '--enable-unsafe-swiftshader',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--ignore-gpu-blocklist',
-  ],
-})
+
+// Headless renders WebGL through swiftshader, which is enough for the genome
+// views but paints nothing for molstar's 3D structure canvas. A spec marked
+// `headed: true` opens a real window on the host GPU instead — so those figures
+// need a desktop session, and every other figure keeps working over SSH/CI.
+const HEADLESS_ARGS = [
+  '--no-sandbox',
+  '--enable-unsafe-swiftshader',
+  '--use-gl=angle',
+  '--use-angle=swiftshader',
+  '--ignore-gpu-blocklist',
+]
+
+const browsers = new Map()
+async function browserFor(headed) {
+  if (!browsers.has(headed)) {
+    browsers.set(
+      headed,
+      await puppeteer.launch({
+        headless: !headed,
+        args: headed ? ['--no-sandbox'] : HEADLESS_ARGS,
+      }),
+    )
+  }
+  return browsers.get(headed)
+}
 
 const READY_TIMEOUT = 90000
 
@@ -111,7 +127,7 @@ async function waitForReady(page) {
 // it collected, or null when the widget never painted a canvas at all.
 async function capture(name, spec) {
   const tall = spec.bundle === 'app.js'
-  const page = await browser.newPage()
+  const page = await (await browserFor(spec.headed)).newPage()
   const errors = []
   try {
     await page.setViewport({
@@ -158,6 +174,8 @@ for (const [name, spec] of Object.entries(specs)) {
   }
 }
 
-await browser.close()
+for (const browser of browsers.values()) {
+  await browser.close()
+}
 server.close()
 process.exit(failed ? 1 : 0)

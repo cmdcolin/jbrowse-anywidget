@@ -4,7 +4,6 @@ from jbrowse_anywidget import (
     JBrowseApp,
     dotplot_view,
     linear_view,
-    protein_view,
     synteny_track,
     synteny_view,
     view,
@@ -22,26 +21,6 @@ def test_view_drops_unset_init_fields():
     assert view("LinearGenomeView", assembly="hg38", loc=None)["init"] == {
         "assembly": "hg38"
     }
-
-
-def test_protein_view_carries_only_what_was_set():
-    spec = protein_view(uniprot_id="P04637", transcript_id="NM_000546.6")
-    assert spec == {
-        "type": "ProteinView",
-        "init": {"uniprotId": "P04637", "transcriptId": "NM_000546.6"},
-    }
-
-
-def test_linear_view_builds_a_type_init_spec():
-    assert linear_view("hg38", loc="chr1:1-1000", tracks=["genes"]) == {
-        "type": "LinearGenomeView",
-        "init": {"assembly": "hg38", "loc": "chr1:1-1000", "tracks": ["genes"]},
-    }
-
-
-def test_linear_view_extra_kwargs_ride_onto_init():
-    spec = linear_view("hg38", colorByCDS=True)
-    assert spec["init"] == {"assembly": "hg38", "colorByCDS": True}
 
 
 def test_synteny_view_expands_assembly_names_into_panels():

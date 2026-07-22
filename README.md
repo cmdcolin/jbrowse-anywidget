@@ -218,6 +218,22 @@ JBrowseApp(
 It loads a separate, larger bundle (the full app), so the single-view
 `LinearGenomeView` stays lean.
 
+`plugins=[...]` loads JBrowse plugins at runtime by name from the [plugin
+store](https://jbrowse.org/jb2/plugin_store/), which is how view types that
+don't ship in the bundle become available. A plugin's view has its own init
+fields, so open it with the generic `view()` rather than a Python wrapper that
+would fall out of step with the plugin:
+
+```python
+from jbrowse_anywidget import JBrowseApp, view
+
+JBrowseApp(
+    assemblies=[hg38],
+    plugins=["Protein3d"],
+    views=[view("ProteinView", url=".../AF-P04637-F1-model_v6.cif", height=600)],
+)
+```
+
 ## Publishing (to make the Colab links live)
 
 The built JS bundle in `jbrowse_anywidget/static/` is committed, so the package
