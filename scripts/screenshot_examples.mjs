@@ -71,7 +71,10 @@ const server = createServer(async (req, res) => {
   } else {
     try {
       const body = await readFile(join(REPO, url.pathname))
-      res.setHeader('content-type', TYPES[extname(url.pathname)] ?? 'application/octet-stream')
+      res.setHeader(
+        'content-type',
+        TYPES[extname(url.pathname)] ?? 'application/octet-stream',
+      )
       res.end(body)
     } catch {
       res.statusCode = 404
@@ -136,17 +139,25 @@ async function capture(name, spec) {
       deviceScaleFactor: 2,
     })
     page.on('pageerror', e => errors.push(String(e)))
-    await page.evaluateOnNewDocument(t => { window.__traits = t }, spec.traits)
-    await page.goto(`http://localhost:${port}/harness.html?bundle=${spec.bundle}`, {
-      waitUntil: 'load',
-      timeout: 60000,
-    })
+    await page.evaluateOnNewDocument(t => {
+      window.__traits = t
+    }, spec.traits)
+    await page.goto(
+      `http://localhost:${port}/harness.html?bundle=${spec.bundle}`,
+      {
+        waitUntil: 'load',
+        timeout: 60000,
+      },
+    )
     try {
-      await page.waitForFunction(() => window.__rendered === true, { timeout: 30000 })
+      await page.waitForFunction(() => window.__rendered === true, {
+        timeout: 30000,
+      })
       await page.waitForSelector('#root canvas', { timeout: 45000 })
     } catch (e) {
       console.error(`✗ ${name}: never rendered — ${e.message}`)
-      if (errors.length) console.error('  page errors:', errors.slice(0, 3).join(' | '))
+      if (errors.length)
+        console.error('  page errors:', errors.slice(0, 3).join(' | '))
       return null
     }
     await waitForReady(page)
@@ -169,7 +180,9 @@ for (const [name, spec] of Object.entries(specs)) {
   if (errors === null) {
     failed++
   } else {
-    console.log(`✓ ${name} -> images/${name}.png${errors.length ? `  (${errors.length} page errors)` : ''}`)
+    console.log(
+      `✓ ${name} -> images/${name}.png${errors.length ? `  (${errors.length} page errors)` : ''}`,
+    )
     if (errors.length) console.error('  ', errors.slice(0, 2).join(' | '))
   }
 }

@@ -30,3 +30,11 @@ jobs:
       - uses: astral-sh/ruff-action@v3
       - run: ruff check
       - run: ruff format --check
+
+  prettier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # npx rather than `pnpm install`, which can't resolve the link: dependency
+      # on the sibling jbrowse-components checkout that isn't present here
+      - run: npx prettier@3 --check .

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "vite build && JB_TARGET=app vite build",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@fontsource/roboto": "^5.1.0",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@anywidget/types": "^0.4.0",
     "@vitejs/plugin-react": "^4.5.1",
+    "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vite": "^6.3.5",
     "vite-plugin-node-polyfills": "0.22.0"
